@@ -26,13 +26,33 @@ class SearchService:
     def __init__(self, repo: Repository) -> None:
         self.repo = repo
 
-    def search(self, query: str, limit: int = 50) -> list[dict]:
+    def _plan(self, query: str) -> tuple[str, object] | None:
+        """Decide how to run a query. The trigram index can't match terms < 3 chars, so a query with
+        any short term (e.g. "ai", "os", "5g") uses a LIKE scan; otherwise the fast, ranked FTS path.
+        """
         terms = _TERM.findall(query)
         if not terms:
-            return []
-        # The trigram index can't match terms < 3 chars. If the query has any short term (e.g. "ai",
-        # "os", "5g"), fall back to a LIKE scan over the denormalized text so short terms still work;
-        # otherwise use the fast, ranked FTS path.
+            return None
         if any(len(t) < _MIN_TERM for t in terms):
-            return [dict(row) for row in self.repo.search_sessions_like(terms, limit)]
-        return [dict(row) for row in self.repo.search_sessions(_safe_fts_query(query), limit)]
+            return ("like", terms)
+        return ("fts", _safe_fts_query(query))
+
+    def search(self, query: str, limit: int | None = 50) -> list[dict]:
+        """Return up to ``limit`` matching sessions (``limit=None`` returns all)."""
+        plan = self._plan(query)
+        if plan is None:
+            return []
+        kind, arg = plan
+        rows = (
+            self.repo.search_sessions_like(arg, limit) if kind == "like"
+            else self.repo.search_sessions(arg, limit)
+        )
+        return [dict(row) for row in rows]
+
+    def count(self, query: str) -> int:
+        """Total number of sessions matching ``query`` (ignores any display limit)."""
+        plan = self._plan(query)
+        if plan is None:
+            return 0
+        kind, arg = plan
+        return self.repo.count_sessions_like(arg) if kind == "like" else self.repo.count_sessions(arg)

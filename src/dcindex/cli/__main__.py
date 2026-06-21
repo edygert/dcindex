@@ -147,19 +147,24 @@ def events(data_dir: DataDir = _data_dir_opt) -> None:
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Full-text query over title/abstract/speakers/track."),
-    limit: int = typer.Option(20, "--limit", "-n"),
+    limit: int = typer.Option(50, "--limit", "-n", help="Max results to show."),
+    show_all: bool = typer.Option(False, "--all", help="Show every match (ignores --limit)."),
     data_dir: DataDir = _data_dir_opt,
 ) -> None:
     """Full-text search across ingested sessions."""
     with _container(data_dir) as app_:
-        rows = app_.search.search(query, limit)
+        total = app_.search.count(query)
+        rows = app_.search.search(query, None if show_all else limit)
         if not rows:
             typer.echo("(no matches)")
             return
         for row in rows:
             speakers = f" — {row['speakers_text']}" if row["speakers_text"] else ""
             typer.echo(f"#{row['id']:<6} [{row['event_name']}/{row['category']}] {row['title']}{speakers}")
-        typer.echo("\nUse 'dcindex show <id>' for full session detail.")
+        if len(rows) < total:
+            typer.echo(f"\nshowing {len(rows)} of {total} matches (use --all or -n to see more).")
+        else:
+            typer.echo(f"\n{total} match{'es' if total != 1 else ''}. Use 'dcindex show <id>' for detail.")
 
 
 @app.command()

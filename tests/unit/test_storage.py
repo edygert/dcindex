@@ -106,6 +106,49 @@ def test_search_service_routes_short_terms_to_like():
     assert svc.search("a") == [] or svc.search("a")  # 1-char doesn't crash
 
 
+def test_count_and_unlimited_search():
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    src = repo.get_or_create_source("dump")
+    for i in range(5):
+        ev = _event()
+        ev.sessions[0].slug = f"S{i}"
+        ev.sessions[0].title = f"Security topic {i}"
+        repo.save_event(ev, src)
+    repo.commit()
+
+    # FTS path
+    assert repo.count_sessions('"security"') == 5
+    assert len(repo.search_sessions('"security"', limit=2)) == 2
+    assert len(repo.search_sessions('"security"', limit=None)) == 5  # --all
+    # LIKE path (short term)
+    assert repo.count_sessions_like(["sec"]) == 5
+    assert len(repo.search_sessions_like(["sec"], limit=2)) == 2
+    assert len(repo.search_sessions_like(["sec"], limit=None)) == 5
+
+
+def test_search_service_count_matches_results():
+    from dcindex.services.search_service import SearchService
+
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    src = repo.get_or_create_source("dump")
+    for i in range(3):
+        ev = _event()
+        ev.sessions[0].slug = f"S{i}"
+        ev.sessions[0].title = f"Kernel topic {i}"
+        repo.save_event(ev, src)
+    repo.commit()
+
+    svc = SearchService(repo)
+    assert svc.count("kernel") == 3
+    assert len(svc.search("kernel", limit=1)) == 1
+    assert len(svc.search("kernel", limit=None)) == 3
+    assert svc.count("nomatchxyz") == 0
+
+
 def test_reingest_replaces_speaker_links_and_prunes():
     conn = connect(":memory:")
     migrations.apply(conn)
