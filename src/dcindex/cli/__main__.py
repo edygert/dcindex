@@ -202,24 +202,36 @@ def show(
             return
 
         typer.secho(s.title, bold=True)
-        meta = " · ".join(x for x in (s.event_name, s.category.value, s.room, s.starts_at) if x)
-        if meta:
-            typer.echo(meta)
+        typer.echo(f"ID:       #{s.id}  (slug {s.slug})")
+        typer.echo(f"Event:    {s.event_name} ({s.event_slug})")
+        typer.echo(f"Category: {s.category.value}")
         if s.track:
             typer.echo(f"Track:    {s.track}")
+        if s.room:
+            typer.echo(f"Location: {s.room}")
+        if s.starts_at:
+            typer.echo(f"When:     {s.starts_at}")
+        typer.echo(f"Source:   {s.source_url or '(none)'}")
+
         if s.speakers:
-            names = ", ".join(
-                sp.name + (f" ({sp.affiliation})" if sp.affiliation else "") for sp in s.speakers
-            )
-            typer.echo(f"Speakers: {names}")
-        if s.source_url:
-            typer.echo(f"Source:   {s.source_url}")
-        if s.abstract:
-            typer.echo(f"\n{s.abstract}")
+            typer.echo("\nSpeakers:")
+            for sp in s.speakers:
+                aff = f" — {sp.affiliation}" if sp.affiliation else ""
+                typer.echo(f"  {sp.name}{aff}")
+                if sp.bio:
+                    typer.echo(f"    {sp.bio}")
+        else:
+            typer.echo("\nSpeakers: none recorded")
+
+        typer.echo("\nAbstract:")
+        typer.echo(s.abstract or "(none)")
+
         if s.materials:
             typer.echo("\nMaterials & links (open manually — nothing is downloaded):")
             for m in s.materials:
-                typer.echo(f"  [{m.kind.value:10}] {m.url}")
+                redundant = not m.title or m.title in ("Link", m.url)
+                title = "" if redundant else f"  ({m.title})"
+                typer.echo(f"  [{m.kind.value:10}] {m.url}{title}")
         else:
             typer.echo("\nMaterials & links: none recorded")
 
