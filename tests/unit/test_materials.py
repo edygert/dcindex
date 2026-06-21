@@ -1,5 +1,17 @@
 from dcindex.core.models import MaterialKind
+from dcindex.parsers.base import clean, strip_html
 from dcindex.parsers.materials import classify, is_downloadable_asset
+
+
+def test_repairs_mojibake_and_strips_control_chars():
+    # Double-encoded UTF-8 (as in the Outel dumps) plus a C1 control char that breaks terminals.
+    raw = "founding member of â€œThe Diana Initiativeâ€. Iâ€™ll talk"
+    out = clean(raw)
+    assert '"The Diana Initiative"' in out
+    assert "I'll talk" in out
+    assert not any(0x80 <= ord(c) <= 0x9F for c in out)  # no C1 controls survive
+    # same repair through the HTML path
+    assert strip_html(f"<p>{raw}</p>").endswith("I'll talk")
 
 
 def test_classify_by_extension():
