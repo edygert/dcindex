@@ -6,6 +6,7 @@ so a future TUI/FastAPI front-end shares the exact same operations.
 
 from __future__ import annotations
 
+import json
 import webbrowser
 from pathlib import Path
 
@@ -149,12 +150,22 @@ def search(
     query: str = typer.Argument(..., help="Full-text query over title/abstract/speakers/track."),
     limit: int = typer.Option(50, "--limit", "-n", help="Max results to show."),
     show_all: bool = typer.Option(False, "--all", help="Show every match (ignores --limit)."),
+    json_out: bool = typer.Option(
+        False, "--json", help="Output full metadata of each hit as a JSON array (for piping)."
+    ),
     data_dir: DataDir = _data_dir_opt,
 ) -> None:
     """Full-text search across ingested sessions."""
     with _container(data_dir) as app_:
-        total = app_.search.count(query)
         rows = app_.search.search(query, None if show_all else limit)
+
+        if json_out:
+            # Pure JSON on stdout (no summary) so it pipes cleanly into jq etc.
+            details = app_.sessions.get_many([row["id"] for row in rows])
+            typer.echo(json.dumps([d.model_dump(mode="json") for d in details], indent=2))
+            return
+
+        total = app_.search.count(query)
         if not rows:
             typer.echo("(no matches)")
             return

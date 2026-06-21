@@ -39,6 +39,15 @@ class SessionService:
             materials=materials,
         )
 
+    def get_many(self, ids: list[int]) -> list[SessionDetailDTO]:
+        """Resolve several sessions to full detail, in the given order; skip ids that don't exist."""
+        out: list[SessionDetailDTO] = []
+        for session_id in ids:
+            detail = self.get(session_id)
+            if detail is not None:
+                out.append(detail)
+        return out
+
     def materials(self, session_id: int) -> list[MaterialDTO] | None:
         """Just the known material/supplemental URLs for a session (for manual access)."""
         if self.repo.get_session(session_id) is None:

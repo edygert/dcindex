@@ -46,3 +46,21 @@ def test_materials_listing():
     mats = svc.materials(sid)
     assert {m.url for m in mats} == {"https://github.com/a/b", "https://x/s.pdf"}
     assert svc.materials(999_999) is None
+
+
+def test_get_many_order_and_skips_missing():
+    svc, sid = _setup()
+    details = svc.get_many([999_999, sid, 888_888])  # missing ids dropped, order preserved
+    assert [d.id for d in details] == [sid]
+    assert svc.get_many([]) == []
+
+
+def test_get_many_json_has_full_metadata():
+    svc, sid = _setup()
+    payload = [d.model_dump(mode="json") for d in svc.get_many([sid])]
+    obj = payload[0]
+    assert {"id", "title", "category", "abstract", "speakers", "materials", "source_url"} <= obj.keys()
+    assert obj["category"] == "talk"  # StrEnum serialized to plain string
+    assert obj["speakers"][0]["name"] == "Alice Lee"
+    assert {m["url"] for m in obj["materials"]} == {"https://github.com/a/b", "https://x/s.pdf"}
+    assert isinstance(obj["materials"][0]["kind"], str)
