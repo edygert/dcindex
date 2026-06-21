@@ -62,9 +62,24 @@ uv run dcindex ingest-dump ./dc30_mysqldump.txt --edition dc30   # offline, from
 uv run dcindex stats                         # row counts + per-category coverage
 uv run dcindex events                        # list ingested DEF CON editions
 uv run dcindex search "azure ad"             # full-text search; prints a #id per result
+uv run dcindex search "hyper" --all          # every match (default shows 50; -n to set a limit)
 uv run dcindex show 213                       # full detail: speakers, abstract, and known URLs
 uv run dcindex materials 213                  # just the links, for manual access
 uv run dcindex materials 213 --open           # open each link in your browser (you access manually)
+```
+
+**Search** matches **substrings** (a trigram index), so `hyper` finds `hypervisor`; terms shorter
+than 3 characters fall back to a `LIKE` scan so `ai`/`os`/`5g` still work. The match summary is
+printed to **stderr**, so stdout carries only result rows and pipes cleanly.
+
+**JSON output** for scripting — both `search` and `show` take `--json` and emit full session metadata
+(abstract, track, room, time, source URL, speakers with affiliation/bio, and all material links) on
+stdout, ready for `jq`:
+
+```bash
+uv run dcindex search "hypervisor" --json | jq '.[].title'    # array of full hit objects
+uv run dcindex search "hypervisor" --json --all | jq length   # every match
+uv run dcindex show 213 --json | jq '.materials'              # one full session object
 ```
 
 Editions accept any of `dc30`, `defcon30`, `defcon-30`, `30`, or the year `2022`; when ingesting a

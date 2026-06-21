@@ -185,14 +185,21 @@ def search(
 @app.command()
 def show(
     session_id: int = typer.Argument(..., help="Session id (the #number from `search`)."),
+    json_out: bool = typer.Option(
+        False, "--json", help="Output the session's full metadata as a JSON object."
+    ),
     data_dir: DataDir = _data_dir_opt,
 ) -> None:
     """Show full detail for one session: speakers, abstract, and all known material links."""
     with _container(data_dir) as app_:
         s = app_.sessions.get(session_id)
         if s is None:
-            typer.secho(f"no session with id {session_id}", fg=typer.colors.RED)
+            typer.secho(f"no session with id {session_id}", fg=typer.colors.RED, err=True)
             raise typer.Exit(1)
+
+        if json_out:
+            typer.echo(json.dumps(s.model_dump(mode="json"), indent=2))
+            return
 
         typer.secho(s.title, bold=True)
         meta = " · ".join(x for x in (s.event_name, s.category.value, s.room, s.starts_at) if x)
