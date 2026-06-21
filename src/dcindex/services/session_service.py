@@ -1,0 +1,49 @@
+"""Single-session retrieval (the `show` and `materials` commands; a future TUI detail screen)."""
+
+from __future__ import annotations
+
+from dcindex.core.models import SessionCategory
+from dcindex.dto.contracts import MaterialDTO, SessionDetailDTO, SpeakerDTO
+from dcindex.storage.repositories import Repository
+
+
+class SessionService:
+    def __init__(self, repo: Repository) -> None:
+        self.repo = repo
+
+    def get(self, session_id: int) -> SessionDetailDTO | None:
+        row = self.repo.get_session(session_id)
+        if row is None:
+            return None
+        speakers = [
+            SpeakerDTO(name=s["name"], affiliation=s["affiliation"] or None, bio=s["bio"])
+            for s in self.repo.get_session_speakers(session_id)
+        ]
+        materials = [
+            MaterialDTO(title=m["title"] or "Link", url=m["url"], kind=m["kind"])
+            for m in self.repo.get_session_materials(session_id)
+        ]
+        return SessionDetailDTO(
+            id=row["id"],
+            slug=row["slug"],
+            event_name=row["event_name"],
+            event_slug=row["event_slug"],
+            title=row["title"],
+            category=SessionCategory(row["category"]),
+            abstract=row["abstract"],
+            track=row["track"],
+            room=row["room"],
+            starts_at=row["starts_at"],
+            source_url=row["source_url"] or "",
+            speakers=speakers,
+            materials=materials,
+        )
+
+    def materials(self, session_id: int) -> list[MaterialDTO] | None:
+        """Just the known material/supplemental URLs for a session (for manual access)."""
+        if self.repo.get_session(session_id) is None:
+            return None
+        return [
+            MaterialDTO(title=m["title"] or "Link", url=m["url"], kind=m["kind"])
+            for m in self.repo.get_session_materials(session_id)
+        ]

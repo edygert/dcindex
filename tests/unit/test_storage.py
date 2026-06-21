@@ -1,0 +1,81 @@
+from dcindex.core.models import MaterialKind, SessionCategory
+from dcindex.dto.contracts import EventDTO, MaterialDTO, SessionDTO, SpeakerDTO
+from dcindex.storage import migrations
+from dcindex.storage.db import connect, fts5_available
+from dcindex.storage.repositories import Repository
+
+
+def _event():
+    return EventDTO(
+        slug="defcon-30", name="DEF CON 30", number=30, year=2022,
+        source_url="https://defcon.outel.org/defcon30/dc30_mysqldump.txt",
+        sessions=[SessionDTO(
+            slug="H1", title="Breaking Kernels", category=SessionCategory.TALK,
+            abstract="A new class of kernel bugs", track="OS", room="Track 1",
+            source_url="https://forum.defcon.org/node/1001",
+            speakers=[SpeakerDTO(name="Alice Lee")],
+            materials=[MaterialDTO(title="tool", url="https://github.com/a/b", kind=MaterialKind.TOOL)],
+        )],
+    )
+
+
+def test_fts5_available():
+    assert fts5_available(connect(":memory:"))
+
+
+def test_apply_idempotent():
+    conn = connect(":memory:")
+    assert migrations.apply(conn) == migrations.SCHEMA_VERSION
+    assert migrations.apply(conn) == migrations.SCHEMA_VERSION
+    assert migrations.current_version(conn) == migrations.SCHEMA_VERSION
+
+
+def test_save_event_idempotent_and_category():
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    src = repo.get_or_create_source("dump")
+
+    c1 = repo.save_event(_event(), src)
+    repo.commit()
+    c2 = repo.save_event(_event(), src)
+    repo.commit()
+
+    assert c1.sessions == 1 and c1.materials == 1
+    assert c1.by_category == {"talk": 1}
+    assert c2.materials == 0  # same material URL not re-inserted
+    assert repo.stats()["sessions"] == 1
+    assert [dict(r) for r in repo.stats_by_category()] == [{"category": "talk", "sessions": 1}]
+
+
+def test_fts_search_hits_title_speaker_and_material():
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    repo.save_event(_event(), repo.get_or_create_source("dump"))
+    repo.commit()
+
+    assert [r["title"] for r in repo.search_sessions('"kernel"')] == ["Breaking Kernels"]
+    assert repo.search_sessions('"Alice"')  # speaker indexed
+    assert repo.search_sessions('"tool"')  # material title indexed
+
+
+def test_reingest_replaces_speaker_links_and_prunes():
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    src = repo.get_or_create_source("dump")
+
+    ev = _event()
+    ev.sessions[0].speakers = [SpeakerDTO(name="Alice Lee", affiliation="Acme Inc")]
+    repo.save_event(ev, src)
+    ev.sessions[0].speakers = [SpeakerDTO(name="Alice Lee", affiliation="Acme")]
+    repo.save_event(ev, src)
+    repo.commit()
+
+    sid = conn.execute("SELECT id FROM sessions").fetchone()[0]
+    links = conn.execute(
+        "SELECT COUNT(*) FROM session_speakers WHERE session_id = ?", (sid,)
+    ).fetchone()[0]
+    assert links == 1
+    assert repo.prune_orphan_speakers() == 1
