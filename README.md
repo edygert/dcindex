@@ -64,8 +64,6 @@ uv run dcindex events                        # list ingested DEF CON editions
 uv run dcindex search "azure ad"             # full-text search; prints a #id per result
 uv run dcindex search "hyper" --all          # every match (default shows 50; -n to set a limit)
 uv run dcindex show 213                       # full detail: speakers, abstract, and known URLs
-uv run dcindex materials 213                  # just the links, for manual access
-uv run dcindex materials 213 --open           # open each link in your browser (you access manually)
 ```
 
 **Search** matches **substrings** (a trigram index), so `hyper` finds `hypervisor`; terms shorter

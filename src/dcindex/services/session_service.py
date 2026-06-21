@@ -47,12 +47,3 @@ class SessionService:
             if detail is not None:
                 out.append(detail)
         return out
-
-    def materials(self, session_id: int) -> list[MaterialDTO] | None:
-        """Just the known material/supplemental URLs for a session (for manual access)."""
-        if self.repo.get_session(session_id) is None:
-            return None
-        return [
-            MaterialDTO(title=m["title"] or "Link", url=m["url"], kind=m["kind"])
-            for m in self.repo.get_session_materials(session_id)
-        ]

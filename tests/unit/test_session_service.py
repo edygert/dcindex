@@ -41,13 +41,6 @@ def test_get_detail():
     assert svc.get(999_999) is None
 
 
-def test_materials_listing():
-    svc, sid = _setup()
-    mats = svc.materials(sid)
-    assert {m.url for m in mats} == {"https://github.com/a/b", "https://x/s.pdf"}
-    assert svc.materials(999_999) is None
-
-
 def test_get_many_order_and_skips_missing():
     svc, sid = _setup()
     details = svc.get_many([999_999, sid, 888_888])  # missing ids dropped, order preserved

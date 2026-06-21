@@ -7,7 +7,6 @@ so a future TUI/FastAPI front-end shares the exact same operations.
 from __future__ import annotations
 
 import json
-import webbrowser
 from pathlib import Path
 
 import typer
@@ -234,32 +233,6 @@ def show(
                 typer.echo(f"  [{m.kind.value:10}] {m.url}{title}")
         else:
             typer.echo("\nMaterials & links: none recorded")
-
-
-@app.command()
-def materials(
-    session_id: int = typer.Argument(..., help="Session id (the #number from `search`)."),
-    open_links: bool = typer.Option(
-        False, "--open", help="Open each link in your default browser (manual access)."
-    ),
-    data_dir: DataDir = _data_dir_opt,
-) -> None:
-    """List a session's known supplemental URLs for manual access (never downloads anything)."""
-    with _container(data_dir) as app_:
-        mats = app_.sessions.materials(session_id)
-        if mats is None:
-            typer.secho(f"no session with id {session_id}", fg=typer.colors.RED)
-            raise typer.Exit(1)
-        if not mats:
-            typer.echo("(no links recorded for this session)")
-            return
-        for m in mats:
-            label = f" — {m.title}" if m.title and m.title != "Link" else ""
-            typer.echo(f"[{m.kind.value:10}] {m.url}{label}")
-            if open_links:
-                webbrowser.open(m.url)
-        if open_links:
-            typer.echo(f"\nopened {len(mats)} link(s) in your browser")
 
 
 @app.command()
