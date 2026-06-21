@@ -161,10 +161,14 @@ def search(
         for row in rows:
             speakers = f" — {row['speakers_text']}" if row["speakers_text"] else ""
             typer.echo(f"#{row['id']:<6} [{row['event_name']}/{row['category']}] {row['title']}{speakers}")
+        # Summary goes to stderr so it never pollutes piped/redirected result rows on stdout.
         if len(rows) < total:
-            typer.echo(f"\nshowing {len(rows)} of {total} matches (use --all or -n to see more).")
+            typer.echo(f"showing {len(rows)} of {total} matches (use --all or -n to see more).", err=True)
         else:
-            typer.echo(f"\n{total} match{'es' if total != 1 else ''}. Use 'dcindex show <id>' for detail.")
+            typer.echo(
+                f"{total} match{'es' if total != 1 else ''}. Use 'dcindex show <id>' for detail.",
+                err=True,
+            )
 
 
 @app.command()
