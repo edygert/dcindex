@@ -7,7 +7,7 @@ from importlib import resources
 
 from .db import require_fts5
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: sessions_fts uses the trigram tokenizer (substring search)
 
 
 def _load_schema_sql() -> str:

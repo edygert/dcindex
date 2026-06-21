@@ -60,6 +60,21 @@ def test_fts_search_hits_title_speaker_and_material():
     assert repo.search_sessions('"tool"')  # material title indexed
 
 
+def test_trigram_substring_search():
+    """Trigram tokenizer matches a query anywhere inside a word (prefix/infix/suffix)."""
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    ev = _event()
+    ev.sessions[0].title = "Weaponizing Hypervisors"
+    repo.save_event(ev, repo.get_or_create_source("dump"))
+    repo.commit()
+
+    assert repo.search_sessions('"hyper"')  # prefix of "Hypervisors"
+    assert repo.search_sessions('"visor"')  # infix/suffix of "Hypervisors"
+    assert not repo.search_sessions('"zzzz"')
+
+
 def test_reingest_replaces_speaker_links_and_prunes():
     conn = connect(":memory:")
     migrations.apply(conn)

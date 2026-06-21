@@ -95,9 +95,12 @@ CREATE INDEX IF NOT EXISTS idx_materials_session ON materials(session_id);
 -- Full-text search over sessions. External-content table mirrors the sessions table; the triggers
 -- below keep it in sync. speakers_text/materials_text are denormalized into sessions so a single
 -- trigger set covers them.
+-- trigram tokenizer => case-insensitive **substring** search: "hyper" finds "hypervisor" and
+-- "superhypervisor". Query terms must be >= 3 characters (shorter terms index to no trigrams).
 CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
     title, abstract, track, speakers_text, materials_text,
-    content='sessions', content_rowid='id'
+    content='sessions', content_rowid='id',
+    tokenize='trigram'
 );
 
 CREATE TRIGGER IF NOT EXISTS sessions_ai AFTER INSERT ON sessions BEGIN
