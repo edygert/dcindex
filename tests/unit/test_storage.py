@@ -75,6 +75,37 @@ def test_trigram_substring_search():
     assert not repo.search_sessions('"zzzz"')
 
 
+def test_like_fallback_for_short_terms():
+    """Terms shorter than the trigram minimum still match via the LIKE fallback."""
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    ev = _event()
+    ev.sessions[0].title = "AI Village: OS internals"
+    repo.save_event(ev, repo.get_or_create_source("dump"))
+    repo.commit()
+
+    assert [r["title"] for r in repo.search_sessions_like(["os"])] == ["AI Village: OS internals"]
+    assert repo.search_sessions_like(["ai", "village"])  # ANDed short + long term
+    assert not repo.search_sessions_like(["os", "zzz"])  # AND fails
+
+
+def test_search_service_routes_short_terms_to_like():
+    from dcindex.services.search_service import SearchService
+
+    conn = connect(":memory:")
+    migrations.apply(conn)
+    repo = Repository(conn)
+    ev = _event()
+    ev.sessions[0].title = "RF hacking 101"
+    repo.save_event(ev, repo.get_or_create_source("dump"))
+    repo.commit()
+
+    svc = SearchService(repo)
+    assert [r["title"] for r in svc.search("rf")] == ["RF hacking 101"]  # 2-char term works
+    assert svc.search("a") == [] or svc.search("a")  # 1-char doesn't crash
+
+
 def test_reingest_replaces_speaker_links_and_prunes():
     conn = connect(":memory:")
     migrations.apply(conn)

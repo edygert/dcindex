@@ -27,7 +27,12 @@ class SearchService:
         self.repo = repo
 
     def search(self, query: str, limit: int = 50) -> list[dict]:
-        fts = _safe_fts_query(query)
-        if not fts:
+        terms = _TERM.findall(query)
+        if not terms:
             return []
-        return [dict(row) for row in self.repo.search_sessions(fts, limit)]
+        # The trigram index can't match terms < 3 chars. If the query has any short term (e.g. "ai",
+        # "os", "5g"), fall back to a LIKE scan over the denormalized text so short terms still work;
+        # otherwise use the fast, ranked FTS path.
+        if any(len(t) < _MIN_TERM for t in terms):
+            return [dict(row) for row in self.repo.search_sessions_like(terms, limit)]
+        return [dict(row) for row in self.repo.search_sessions(_safe_fts_query(query), limit)]

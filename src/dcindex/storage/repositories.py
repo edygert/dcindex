@@ -159,6 +159,34 @@ class Repository:
             (query, limit),
         ).fetchall()
 
+    # Searchable text for the LIKE fallback (short terms the trigram index can't match).
+    _SEARCH_TEXT = (
+        "(s.title || ' ' || COALESCE(s.abstract,'') || ' ' || COALESCE(s.track,'') || ' ' || "
+        "s.speakers_text || ' ' || s.materials_text)"
+    )
+
+    def search_sessions_like(self, terms: list[str], limit: int = 50) -> list[sqlite3.Row]:
+        """Substring AND-search via LIKE (handles terms shorter than the trigram minimum).
+
+        ``terms`` come from ``[A-Za-z0-9]+`` tokens, so they contain no LIKE wildcards to escape.
+        Unranked; ordered newest-edition-first then title.
+        """
+        if not terms:
+            return []
+        where = " AND ".join(f"{self._SEARCH_TEXT} LIKE ?" for _ in terms)
+        params = [f"%{t}%" for t in terms]
+        params.append(limit)
+        return self.conn.execute(
+            f"""
+            SELECT s.id, s.title, s.category, s.track, s.speakers_text, e.name AS event_name
+            FROM sessions s JOIN events e ON e.id = s.event_id
+            WHERE {where}
+            ORDER BY e.year DESC, s.title
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+
     def get_session(self, session_id: int) -> sqlite3.Row | None:
         return self.conn.execute(
             """
